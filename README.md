@@ -5,7 +5,7 @@ https://greasyfork.org/scripts/35841
 
 Improve Search on fanfiction(script).
 
-**THIS SCRIPT USING HEAVILY ![WEB SCRAPING](https://en.wikipedia.org/wiki/Web_scraping), USE ON YOUR OWN RISK!**
+**THIS SCRIPT USING HEAVILY [WEB SCRAPING](https://en.wikipedia.org/wiki/Web_scraping), USE ON YOUR OWN RISK!**
 
 Don't have time to make screenshots, but here is how to use:
 1) Visit fandom with fanfics then click "Fetch fanfics".
