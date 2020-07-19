@@ -6,7 +6,7 @@
 // @require     https://code.jquery.com/jquery-3.2.1.min.js
 // @require     https://cdnjs.cloudflare.com/ajax/libs/list.js/1.5.0/list.min.js
 // @author      TiLied
-// @version     0.1.00
+// @version     0.1.01
 // @grant       GM_listValues
 // @grant       GM_getValue
 // @grant       GM_setValue
@@ -98,7 +98,10 @@ async function SetSettings(callBack)
 	//Find out that var in for block is not local... Seriously js?
 	for (let i = 0; i < vals.length; i++)
 	{
-		console.log("*" + vals[i] + ":" + await GM.getValue(vals[i]));
+		let str = await GM.getValue(vals[i]);
+		console.log("*" + vals[i] + ":" + str);
+		const byteSize = str => new Blob([str]).size;
+		console.log("Size cache: " + FormatBytes(byteSize(str)) + "");
 	}
 	console.log("*-----*");
 
@@ -730,7 +733,7 @@ function ParseFic(div)
 
 		tempFic.href = "https://www.fanfiction.net" + $(div.firstChild).attr("href");
 		tempFic.id = $(div.firstChild).attr("href").split("/")[2];
-		tempFic.image = $(div.firstChild.firstChild).attr("src");
+		tempFic.image = $(div.firstChild.firstChild).attr("data-original");
 		tempFic.author = $(div).find("a").filter(function ()
 		{
 			var str = $(this).attr("href");
@@ -901,7 +904,11 @@ async function FetchFics()
 		setTimeout(async function ()
 		{
 			last = $("center:first > a:last-child").prev().attr("href");
-			last = Number(last.substr(last.indexOf("p=") + 2));
+			if (typeof last === "undefined")
+			{
+				last = 3;
+			} else
+				last = Number(last.substr(last.indexOf("p=") + 2));
 			if (debug) console.log(last);
 			for (let i = 2; i <= last; i++)
 			{
@@ -985,7 +992,7 @@ function SearchFilterSort()
 			- <span class="z-padtop2 xgray">Updated:</span><span class="fsp_updated fsp_updatedRaw z-padtop2 xgray"></span>\
 			- <span class="z-padtop2 xgray">Complete:</span><span class="fsp_complete z-padtop2 xgray"></span>\
 			- <span class="z-padtop2 xgray">Characters:</span><span class="fsp_characters z-padtop2 xgray"></span>\
-			- <span class="z-padtop2 xgray">Relationships:</span><span class="fsp_relationships z-padtop2 xgray"></span>\</span>\
+			- <span class="z-padtop2 xgray">Relationships:</span><span class="fsp_relationships z-padtop2 xgray"></span></span>\
 			- <span class="z-padtop2 xgray">Id:</span><span class="fsp_Id z-padtop2 xgray"></span>'
 		};
 		
@@ -2029,5 +2036,19 @@ function SetCSS()
 function IsEven(n)
 {
 	return n === parseFloat(n) ? !(n % 2) : void 0;
+}
+
+//https://stackoverflow.com/a/18650828
+function FormatBytes(bytes, decimals = 2)
+{
+	if (bytes === 0) return '0 Bytes';
+
+	const k = 1024;
+	const dm = decimals < 0 ? 0 : decimals;
+	const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'];
+
+	const i = Math.floor(Math.log(bytes) / Math.log(k));
+
+	return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
 }
 
