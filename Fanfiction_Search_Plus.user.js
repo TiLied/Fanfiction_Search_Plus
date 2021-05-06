@@ -3,10 +3,10 @@
 // @namespace   https://greasyfork.org/users/102866
 // @description Give more options to search
 // @include     https://www.fanfiction.net/*
-// @require     https://code.jquery.com/jquery-3.2.1.min.js
-// @require     https://cdnjs.cloudflare.com/ajax/libs/list.js/1.5.0/list.min.js
+// @require     https://code.jquery.com/jquery-3.6.0.min.js
+// @require     https://cdnjs.cloudflare.com/ajax/libs/list.js/2.3.1/list.min.js
 // @author      TiLied
-// @version     0.1.01
+// @version     0.1.02
 // @grant       GM_listValues
 // @grant       GM_getValue
 // @grant       GM_setValue
@@ -18,10 +18,12 @@
 // @grant       GM.deleteValue
 // ==/UserScript==
 
-var whatPage = 0,
+let requestDelay = 5000, //robots.txt crawl-delay
+	whatPage = 0,
 	fanName,
 	section,
-	listTrue = false;
+	listTrue = false,
+	_timerCount = 0;
 
 const oneSecond = 1000,
 	oneDay = oneSecond * 60 * 60 * 24,
@@ -30,7 +32,7 @@ const oneSecond = 1000,
 	mRatingAndUpTime = "?&srt=1&r=10";
 
 //prefs
-var ff = {},
+let ff = {},
 	debug = false;
 
 /**
@@ -52,15 +54,17 @@ var Page;
 	Page[Page["play"] = 8] = "play";
 	Page[Page["movie"] = 9] = "movie";
 	Page[Page["tv"] = 10] = "tv";
-	Page[Page["crossover"] = 10] = "crossover";
-	Page[Page["crossoverR"] = 11] = "crossoverR";
-	Page[Page["ErrorNothing1"] = 100] = "ErrorNothing1";
+	Page[Page["Crossovers"] = 11] = "Crossovers";
+	Page[Page["ErrorNothing1"] = 12] = "ErrorNothing1";
+	Page[Page["ErrorNothing11"] = 100] = "ErrorNothing11";
 })(Page || (Page = {}));
 
 //Start
 //Function main
-void function Main()
+void async function Main()
 {
+	requestDelay += 1000;
+
 	console.log("Fanfiction Search Plus v" + GM.info.script.version + " initialization");
 	//Place CSS in head
 	SetCSS();
@@ -248,12 +252,6 @@ function SetFFObj()
 	if (typeof ff.fanfiction === "undefined")
 	{
 		ff.fanfiction = {};
-		//fanfiction = options.additionalRatings;
-	} else
-	{
-		//if (options.additionalRatings["kinopoisk"] === undefined) { options.additionalRatings[kinopoisk] = false; }
-		//if (options.additionalRatings["rottenTomatoes"] === undefined) { options.additionalRatings[rottenTomatoes] = false; }
-		//additionalRatings = options.additionalRatings;
 	}
 
 	if (debug) console.log(ff);
@@ -306,6 +304,36 @@ function SwitchPage()
 			section = Page[whatPage];
 			SetUpForTv(document.URL);
 			break;
+		case 11:
+			section = Page[whatPage];
+			if (typeof ff.fanfiction[section] === "undefined")
+				ff.fanfiction[section] = {};
+
+			fanName = document.URL.match(/\.net\/(.+)\//)[1];
+
+			if (debug) console.log(fanName);
+
+			if (typeof ff.fanfiction[section][fanName] === "undefined" || ff.fanfiction[section][fanName].length === 0)
+			{
+				if (ff.fetch)
+				{
+					setTimeout(FetchFics, 1000);
+				}
+				ff.fanfiction[section][fanName] = [];
+				UI("first");
+			} else
+			{
+				if (ff.fetch)
+				{
+					setTimeout(FetchFics, 1000);
+				}
+				UI("normal");
+				//TODO check updates and etc 
+			}
+
+		//console.log($("center:first > a:last-child").trigger());
+		//ParseFic($(".z-list")[4]);
+			break;
 		default:
 			break;
 	}
@@ -325,65 +353,64 @@ function GetPage(url)
 	8-play page
 	9-movie page
 	10-tv page
-	11-Crossover/ page
+	11-Crossovers/ page
 	12-Crossover/ page
 	13-Crossover/ page
 	14-Crossover/ page
 	15-Crossover/ page
 	100-anything else
 	*/
-	try
-	{
+	const reg = new RegExp("https:\\/\\/www\\.fanfiction\\.net");
+
 		if (document.location.pathname === "/")
 		{
 			whatPage = 1;
-		} else if (url.match(/https:\/\/www\.fanfiction\.net\/anime/i))
+		} else if (url.match(new RegExp(reg.source + "/anime", "i")))
 		{
 			whatPage = 2;
-		} else if (url.match(/https:\/\/www\.fanfiction\.net\/book/i))
+		} else if (url.match(new RegExp(reg.source + "/book", "i")))
 		{
 			whatPage = 3;
-		} else if (url.match(/https:\/\/www\.fanfiction\.net\/cartoon/i))
+		} else if (url.match(new RegExp(reg.source + "/cartoon", "i")))
 		{
 			whatPage = 4;
-		} else if (url.match(/https:\/\/www\.fanfiction\.net\/comic/i))
+		} else if (url.match(new RegExp(reg.source + "/comic", "i")))
 		{
 			whatPage = 5;
-		} else if (url.match(/https:\/\/www\.fanfiction\.net\/game/i))
+	} else if (url.match(new RegExp(reg.source + "/game", "i")))
 		{
 			whatPage = 6;
-		} else if (url.match(/https:\/\/www\.fanfiction\.net\/misc/i))
+	} else if (url.match(new RegExp(reg.source + "/misc", "i")))
 		{
 			whatPage = 7;
-		} else if (url.match(/https:\/\/www\.fanfiction\.net\/play/i))
+	} else if (url.match(new RegExp(reg.source + "/play", "i")))
 		{
 			whatPage = 8;
-		} else if (url.match(/https:\/\/www\.fanfiction\.net\/movie/i))
+	} else if (url.match(new RegExp(reg.source + "/movie", "i")))
 		{
 			whatPage = 9;
-		} else if (url.match(/https:\/\/www\.fanfiction\.net\/tv/i))
+	} else if (url.match(new RegExp(reg.source + "/tv", "i")))
 		{
 			whatPage = 10;
-		} else if (url.match(/https:\/\/www\.fanfiction\.net\/crossover/i))
+		} else if (url.match("-Crossovers"))
 		{
 			whatPage = 11;
-		} else if (url.match(/https:\/\/www\.fanfiction\.net\/crossover/i))
+	} else if (url.match(new RegExp(reg.source + "/crossover", "i")))
 		{
 			whatPage = 12;
-		} else if (url.match(/https:\/\/www\.fanfiction\.net\/crossover/i))
+	} else if (url.match(new RegExp(reg.source + "/crossover", "i")))
 		{
 			whatPage = 13;
-		} else if (url.match(/https:\/\/www\.fanfiction\.net\/crossover/i))
+	} else if (url.match(new RegExp(reg.source + "/crossover", "i")))
 		{
 			whatPage = 14;
-		} else if (url.match(/https:\/\/www\.fanfiction\.net\/crossover/i))
+	} else if (url.match(new RegExp(reg.source + "/crossover", "i")))
 		{
 			whatPage = 15;
 		} else 
 		{
 			whatPage = 100;
 		}
-	} catch (e) { console.og(e); }
 	return whatPage;
 }
 //Functions Get on what page are we and switch
@@ -394,8 +421,6 @@ function GetPage(url)
 //-------------------------
 function SetUpForAnime(url)
 {
-	try
-	{
 		if (typeof ff.fanfiction[section] === "undefined")
 		{
 			ff.fanfiction[section] = {};
@@ -404,6 +429,7 @@ function SetUpForAnime(url)
 
 		fanName = url.match(/anime\/(\S+)\//)[1]; //TODO!!!!!!!!!!!!!!!!!!!!
 
+		
 		if (debug) console.log(fanName);
 
 		if (typeof ff.fanfiction[section][fanName] === "undefined" || ff.fanfiction[section][fanName].length === 0)
@@ -426,12 +452,9 @@ function SetUpForAnime(url)
 
 		//console.log($("center:first > a:last-child").trigger());
 		//ParseFic($(".z-list")[4]);
-	} catch (e) { console.error(e); }
 }
 function SetUpForBook(url)
 {
-	try
-	{
 		if (typeof ff.fanfiction[section] === "undefined")
 		{
 			ff.fanfiction[section] = {};
@@ -462,12 +485,9 @@ function SetUpForBook(url)
 
 		//console.log($("center:first > a:last-child").trigger());
 		//ParseFic($(".z-list")[4]);
-	} catch (e) { console.error(e); }
 }
 function SetUpForCartoon(url)
 {
-	try
-	{
 		if (typeof ff.fanfiction[section] === "undefined")
 		{
 			ff.fanfiction[section] = {};
@@ -498,12 +518,9 @@ function SetUpForCartoon(url)
 
 		//console.log($("center:first > a:last-child").trigger());
 		//ParseFic($(".z-list")[4]);
-	} catch (e) { console.error(e); }
 }
 function SetUpForComic(url)
 {
-	try
-	{
 		if (typeof ff.fanfiction[section] === "undefined")
 		{
 			ff.fanfiction[section] = {};
@@ -534,12 +551,9 @@ function SetUpForComic(url)
 
 		//console.log($("center:first > a:last-child").trigger());
 		//ParseFic($(".z-list")[4]);
-	} catch (e) { console.error(e); }
 }
 function SetUpForGame(url)
 {
-	try
-	{
 		if (typeof ff.fanfiction[section] === "undefined")
 		{
 			ff.fanfiction[section] = {};
@@ -570,12 +584,9 @@ function SetUpForGame(url)
 
 		//console.log($("center:first > a:last-child").trigger());
 		//ParseFic($(".z-list")[4]);
-	} catch (e) { console.error(e); }
 }
 function SetUpForMisc(url)
 {
-	try
-	{
 		if (typeof ff.fanfiction[section] === "undefined")
 		{
 			ff.fanfiction[section] = {};
@@ -606,12 +617,9 @@ function SetUpForMisc(url)
 
 		//console.log($("center:first > a:last-child").trigger());
 		//ParseFic($(".z-list")[4]);
-	} catch (e) { console.error(e); }
 }
 function SetUpForPlay(url)
 {
-	try
-	{
 		if (typeof ff.fanfiction[section] === "undefined")
 		{
 			ff.fanfiction[section] = {};
@@ -642,12 +650,9 @@ function SetUpForPlay(url)
 
 		//console.log($("center:first > a:last-child").trigger());
 		//ParseFic($(".z-list")[4]);
-	} catch (e) { console.error(e); }
 }
 function SetUpForMovie(url)
 {
-	try
-	{
 		if (typeof ff.fanfiction[section] === "undefined")
 		{
 			ff.fanfiction[section] = {};
@@ -678,12 +683,9 @@ function SetUpForMovie(url)
 
 		//console.log($("center:first > a:last-child").trigger());
 		//ParseFic($(".z-list")[4]);
-	} catch (e) { console.error(e); }
 }
 function SetUpForTv(url)
 {
-	try
-	{
 		if (typeof ff.fanfiction[section] === "undefined")
 		{
 			ff.fanfiction[section] = {};
@@ -714,7 +716,6 @@ function SetUpForTv(url)
 
 		//console.log($("center:first > a:last-child").trigger());
 		//ParseFic($(".z-list")[4]);
-	} catch (e) { console.error(e); }
 }
 
 //-------------------------
@@ -731,10 +732,10 @@ function ParseFic(div)
 			tempSplit,
 			indexes = [];
 
-		tempFic.href = "https://www.fanfiction.net" + $(div.firstChild).attr("href");
-		tempFic.id = $(div.firstChild).attr("href").split("/")[2];
-		tempFic.image = $(div.firstChild.firstChild).attr("data-original");
-		tempFic.author = $(div).find("a").filter(function ()
+		tempFic.fsp_titleh = "https://www.fanfiction.net" + $(div.firstChild).attr("href");
+		tempFic.fsp_Id = $(div.firstChild).attr("href").split("/")[2];
+		tempFic.fsp_image = $(div.firstChild.firstChild).attr("data-original") || $(div.firstChild.firstChild).attr("src");
+		tempFic.fsp_author = $(div).find("a").filter(function ()
 		{
 			var str = $(this).attr("href");
 			if (str.includes("/u/"))
@@ -742,7 +743,7 @@ function ParseFic(div)
 				return this;
 			}
 		}).text();
-		tempFic.authorUrl = "https://www.fanfiction.net" + $(div).find("a").filter(function ()
+		tempFic.fsp_authorh = "https://www.fanfiction.net" + $(div).find("a").filter(function ()
 		{
 			var str = $(this).attr("href");
 			if (str.includes("/u/"))
@@ -750,9 +751,9 @@ function ParseFic(div)
 				return this;
 			}
 		}).attr("href");
-		tempFic.title = $(div.firstChild.childNodes[1]).text();
+		tempFic.fsp_title = $(div.firstChild.childNodes[1]).text();
 		
-		tempFic.summary = $(div).find(".z-indent").contents().filter(function ()
+		tempFic.fsp_summary = $(div).find(".z-indent").contents().filter(function ()
 		{
 			return this.nodeType === 3;
 		})[0].nodeValue;
@@ -760,59 +761,62 @@ function ParseFic(div)
 		tempSplit = $(div).find(".z-indent > .z-padtop2").html().split(" - ");
 		if(debug) console.log(tempSplit);
 
-		tempFic.rated = $.trim(tempSplit[0].substr(tempSplit[0].indexOf(":")).substring(2));
-		tempFic.language = $.trim(tempSplit[1]);
+		tempFic.fsp_rated = $.trim(tempSplit[0].substr(tempSplit[0].indexOf(":")).substring(2));
+		tempFic.fsp_lag = $.trim(tempSplit[1]);
 		if (tempSplit[3].match("Chapters"))
 		{
 			if (tempSplit[2].match("/"))
-				tempFic.gernes = $.trim(tempSplit[2]).split("/");
+				tempFic.fsp_genres = $.trim(tempSplit[2]).split("/");
 			else
-				tempFic.gernes = $.trim(tempSplit[2]);
-			tempFic.chapters = Number($.trim(tempSplit[3].substr(tempSplit[3].indexOf(":")).substring(2).split(",").join("")));
-			tempFic.words = Number($.trim(tempSplit[4].substr(tempSplit[4].indexOf(":")).substring(2).split(",").join("")));
+				tempFic.fsp_genres = $.trim(tempSplit[2]);
+			tempFic.fsp_chapters = Number($.trim(tempSplit[3].substr(tempSplit[3].indexOf(":")).substring(2).split(",").join("")));
+			tempFic.fsp_words = Number($.trim(tempSplit[4].substr(tempSplit[4].indexOf(":")).substring(2).split(",").join("")));
 		} else
 		{
-			tempFic.gernes = "none";
-			tempFic.chapters = Number($.trim(tempSplit[2].substr(tempSplit[2].indexOf(":")).substring(2).split(",").join("")));
-			tempFic.words = Number($.trim(tempSplit[3].substr(tempSplit[3].indexOf(":")).substring(2).split(",").join("")));
+			tempFic.fsp_genres = "none";
+			tempFic.fsp_chapters = Number($.trim(tempSplit[2].substr(tempSplit[2].indexOf(":")).substring(2).split(",").join("")));
+			tempFic.fsp_words = Number($.trim(tempSplit[3].substr(tempSplit[3].indexOf(":")).substring(2).split(",").join("")));
 		}
 
 		for (let i = 0; i < tempSplit.length; i++)
 		{
 			if (tempSplit[i].match("Reviews"))
-				tempFic.reviews = Number($.trim(tempSplit[i].substr(tempSplit[i].indexOf(":")).substring(2).split(",").join("")));
+				tempFic.fsp_reviews = Number($.trim(tempSplit[i].substr(tempSplit[i].indexOf(":")).substring(2).split(",").join("")));
 			if (tempSplit[i].match("Favs"))
-				tempFic.favs = Number($.trim(tempSplit[i].substr(tempSplit[i].indexOf(":")).substring(2).split(",").join("")));
+				tempFic.fsp_favs = Number($.trim(tempSplit[i].substr(tempSplit[i].indexOf(":")).substring(2).split(",").join("")));
 			if (tempSplit[i].match("Follows"))
-				tempFic.follows = Number($.trim(tempSplit[i].substr(tempSplit[i].indexOf(":")).substring(2).split(",").join("")));
+				tempFic.fsp_follows = Number($.trim(tempSplit[i].substr(tempSplit[i].indexOf(":")).substring(2).split(",").join("")));
 			if (tempSplit[i].match("Published"))
-				tempFic.published = Number($.trim(tempSplit[i].split('"')[1]));
+				tempFic.fsp_publishedRaw = Number($.trim(tempSplit[i].split('"')[1]));
 			if (tempSplit[i].match("Updated"))
-				tempFic.updated = Number($.trim(tempSplit[i].split('"')[1]));
+				tempFic.fsp_updatedRaw = Number($.trim(tempSplit[i].split('"')[1]));
 			if (tempSplit[i].match("Complete"))
-				tempFic.complete = true;
+				tempFic.fsp_complete = true;
 		}
-		if (typeof tempFic.reviews === "undefined")
-			tempFic.reviews = 0;
-		if (typeof tempFic.favs === "undefined")
-			tempFic.favs = 0;
-		if (typeof tempFic.follows === "undefined")
-			tempFic.follows = 0;
-		if (typeof tempFic.updated === "undefined")
-			tempFic.updated = 0;
-			//tempFic.updated = "" | "none";
-		if (typeof tempFic.complete === "undefined")
-			tempFic.complete = false;
+		if (typeof tempFic.fsp_reviews === "undefined")
+			tempFic.fsp_reviews = 0;
+		if (typeof tempFic.fsp_favs === "undefined")
+			tempFic.fsp_favs = 0;
+		if (typeof tempFic.fsp_follows === "undefined")
+			tempFic.fsp_follows = 0;
+		if (typeof tempFic.fsp_updatedRaw === "undefined")
+			tempFic.fsp_updatedRaw = 0;
+		if (typeof tempFic.fsp_complete === "undefined")
+			tempFic.fsp_complete = false;
 
-		if (tempFic.complete)
+		if (tempFic.fsp_complete)
 		{
 			if (!tempSplit[tempSplit.length - 2].match("Published"))
 				if (!tempSplit[tempSplit.length - 2].match("Updated"))
-					tempFic.characters = tempSplit[tempSplit.length - 2].split(", ");
+					tempFic.fsp_characters = tempSplit[tempSplit.length - 2].split(", ");
 
 			if (tempSplit[tempSplit.length - 2].match(/]/))
 			{
-				tempFic.characters = tempSplit[tempSplit.length - 2].replace(/]/, ",").split(", ");
+				let _r = /]|\[/g;
+				tempFic.fsp_characters = tempSplit[tempSplit.length - 2].replace(_r, ", ").split(", ");
+				if (tempFic.fsp_characters[0] === "")
+					tempFic.fsp_characters.shift();
+
 				let temp = tempSplit[tempSplit.length - 2],
 					arr = [];
 				if(debug) console.log(temp);
@@ -827,23 +831,27 @@ function ParseFic(div)
 
 					arr.push(temp.slice(indexes[2] + 1, indexes[3]).split(", "));
 					if (debug) console.log(arr);
-					tempFic.relationships = arr;
+					tempFic.fsp_relationships = arr;
 				} else
 				{
 					temp = temp.substring(temp.indexOf("[") + 1, temp.indexOf("]"));
 					if (debug) console.log(temp);
-					tempFic.relationships = [temp.split(", ")];
+					tempFic.fsp_relationships = [temp.split(", ")];
 				}
 			}
 		} else
 		{
 			if (!tempSplit[tempSplit.length - 1].match("Published"))
 				if (!tempSplit[tempSplit.length - 1].match("Updated"))
-					tempFic.characters = tempSplit[tempSplit.length - 1].split(", ");
+					tempFic.fsp_characters = tempSplit[tempSplit.length - 1].split(", ");
 
 			if (tempSplit[tempSplit.length - 1].match(/]/))
 			{
-				tempFic.characters = tempSplit[tempSplit.length - 1].replace(/]/, ",").split(", ");
+				let _r = /]|\[/g;
+				tempFic.fsp_characters = tempSplit[tempSplit.length - 2].replace(_r, ", ").split(", ");
+				if (tempFic.fsp_characters[0] === "")
+					tempFic.fsp_characters.shift();
+
 				let temp = tempSplit[tempSplit.length - 1],
 					arr = [];
 				if (debug) console.log(temp);
@@ -857,23 +865,25 @@ function ParseFic(div)
 
 					arr.push(temp.slice(indexes[2] + 1, indexes[3]).split(", "));
 
-					tempFic.relationships = arr;
+					tempFic.fsp_relationships = arr;
 				} else
 				{
 					temp = temp.substring(temp.indexOf("[") + 1, temp.indexOf("]"));
 					if (debug) console.log(temp);
-					tempFic.relationships = [temp.split(", ")];
+					tempFic.fsp_relationships = [temp.split(", ")];
 				}
 			}
 		}
 
-		if (typeof tempFic.characters === "undefined")
-			tempFic.characters = "none";
-			//tempFic.characters = [] | "none";	//none or all??? TODO
+		if (typeof tempFic.fsp_characters === "undefined")
+			tempFic.fsp_characters = "none";
 
-		if (typeof tempFic.relationships === "undefined")
-			tempFic.relationships = "none";
-			//tempFic.relationships = [] | "none";
+		if (typeof tempFic.fsp_relationships === "undefined")
+			tempFic.fsp_relationships = "none";
+
+		tempFic.fsp_published = Intl.DateTimeFormat(undefined, { year: 'numeric', month: 'short', day: 'numeric' }).format(new Date(tempFic["fsp_publishedRaw"] * 1000));
+
+		tempFic.fsp_updated = tempFic["fsp_updatedRaw"] === 0 ? 0 : Intl.DateTimeFormat(undefined, { year: 'numeric', month: 'short', day: 'numeric' }).format(new Date(tempFic["fsp_updatedRaw"] * 1000));
 
 		if (debug) console.log(tempFic);
 
@@ -888,55 +898,150 @@ function ParseFic(div)
 //Function fetch fics
 async function FetchFics()
 {
-	try
+	var zlist = $(".z-list"),
+		last,
+		parser = new DOMParser();
+
+	for (let i = 0; i < zlist.length; i++)
 	{
-		var zlist = $(".z-list"),
-			last,
-			parser = new DOMParser();
+		ff.fanfiction[section][fanName].push(ParseFic(zlist[i]));
+	}
 
-		for (let i = 0; i < zlist.length; i++)
-		{
-			ff.fanfiction[section][fanName].push(ParseFic(zlist[i]));
-		}
+	UI("upFetchCount");
 
-		UI("upFetchCount");
-		
-		setTimeout(async function ()
+	setTimeout(async function ()
+	{
+		last = $("center:first > a:last-child, center:last > a:last-child").prev().attr("href");
+
+		if (typeof last === "undefined")
 		{
-			last = $("center:first > a:last-child").prev().attr("href");
-			if (typeof last === "undefined")
-			{
-				last = 3;
-			} else
-				last = Number(last.substr(last.indexOf("p=") + 2));
-			if (debug) console.log(last);
+			let _l = $("center:first > a:last-child").attr("href");
+			if (typeof _l === "undefined")
+				last = 1;
+			else
+				last = 2;
+		} else
+			last = Number(last.substr(last.indexOf("p=") + 2));
+
+		if (debug) console.log(last);
+
+		if (last === 1)
+			_done();
+
+		_timerCount = (requestDelay / 1000) * (last - 1);
+
+		if (debug) console.log(_timerCount);
+
+		let _display = document.querySelector('#fsp_timer');
+
+		_startTimer(_timerCount, _display);
+
+		//
+		//https://stackoverflow.com/a/44476626
+		//
+		// Returns a Promise that resolves after "ms" Milliseconds
+		const timer = ms => new Promise(res => setTimeout(res, ms))
+
+		async function load()
+		{ // We need to wrap the loop into an async function for this to work
 			for (let i = 2; i <= last; i++)
 			{
-				if (debug) console.log("https://www.fanfiction.net/" + section + "/" + fanName + "/" + mRatingAndUpTime + "&p=" + i);
-				await $.get("https://www.fanfiction.net/" + section + "/" + fanName + "/" + mRatingAndUpTime + "&p=" + i, function (data)
+				let _url;
+				if (section === "Crossovers")
+					_url = "https://www.fanfiction.net/" + fanName + "/" + mRatingAndUpTime + "&p=" + i;
+				else
+					_url = "https://www.fanfiction.net/" + section + "/" + fanName + "/" + mRatingAndUpTime + "&p=" + i;
+
+				if (debug)
 				{
-					var doc = parser.parseFromString(data, "text/html"),
-						z = $(doc).find(".z-list");
-					if (debug) console.log(doc);
-					if (debug) console.log(z);
-					for (let x = 0; x < z.length; x++)
+					console.log("url = " + _url);
+					console.log(i);
+				}
+
+				await fetch(_url).then((data) =>
+				{
+					data.text().then(_d =>
 					{
-						ff.fanfiction[section][fanName].push(ParseFic(z[x]));
-					}
-					UI("upFetchCount");
-				})
-					.fail(function ()
-					{
-						alert("error: ajax/" + i + "-page number/" + fanName + " fandom");
+						let doc = parser.parseFromString(_d, "text/html"),
+							z = $(doc).find(".z-list");
+
+						if (debug) console.log(doc);
+						if (debug) console.log(z);
+
+						for (let x = 0; x < z.length; x++)
+						{
+							ff.fanfiction[section][fanName].push(ParseFic(z[x]));
+						}
+
+						UI("upFetchCount");
 					});
+				}).catch(e =>
+				{
+					console.warn(e);
+				});
+
+				await timer(requestDelay); // then the created Promise can be awaited
+
+				if (i === last)
+					_done();
 			}
-			ff.fetch = false;
-			UpdateGM("ff");
-			alert("ITS DONE!!!");
+		}
+
+		load();
+		//
+		//
+		//
+
+	}, 300);
+	//Get to the next page and thats go on
+
+	function _done()
+	{
+		ff.fetch = false;
+		UpdateGM("ff");
+		alert("Done! You can search now, page will reload.");
+		console.log("done!");
+		if (section === "Crossovers")
+			window.location.href = "https://www.fanfiction.net/" + fanName + "/";
+		else
 			window.location.href = "https://www.fanfiction.net/" + section + "/" + fanName + "/";
-		}, 250);
-		//Get to the next page and thats go on
-	} catch (e) { console.error(e); }
+	}
+
+	//
+	//https://stackoverflow.com/a/20618517
+	//timer
+	function _startTimer(duration, display)
+	{
+		var start = Date.now(),
+			diff,
+			minutes,
+			seconds;
+		function timer()
+		{
+			// get the number of seconds that have elapsed since 
+			// startTimer() was called
+			diff = duration - (((Date.now() - start) / 1000) | 0);
+
+			// does the same job as parseInt truncates the float
+			minutes = (diff / 60) | 0;
+			seconds = (diff % 60) | 0;
+
+			minutes = minutes < 10 ? "0" + minutes : minutes;
+			seconds = seconds < 10 ? "0" + seconds : seconds;
+
+			display.textContent = minutes + ":" + seconds;
+
+			if (diff <= 0)
+			{
+				// add one second so that the count down starts at the full duration
+				// example 05:00 not 04:59
+				start = Date.now() + 1000;
+			}
+		};
+		// we don't want to wait a full second before the timer starts
+		timer();
+		setInterval(timer, 1000);
+	}
 }
 //Function fetch fics
 //End
@@ -946,9 +1051,8 @@ async function FetchFics()
 //Function Search Filter Sort fics
 function SearchFilterSort()
 {
-	try
-	{
-		var options = {
+
+	let options = {
 			valueNames:
 			[
 				'fsp_title',
@@ -971,11 +1075,22 @@ function SearchFilterSort()
 				'fsp_complete',
 				'fsp_characters',
 				'fsp_relationships',
-				'fsp_Id'
+				'fsp_Id',
+				'fsp_genres'
 			],
 
-			page: 20,
-			pagination: true,
+			page: 25,
+			pagination: [{
+				name: "paginationTop",
+				paginationClass: "paginationTop",
+				outerWindow: 2,
+				innerWindow: 3
+			}, {
+				name: "paginationBottom",
+				paginationClass: "paginationBottom",
+				outerWindow: 2,
+				innerWindow: 3
+			}],
 			item: '<div class="fsp_list z-list zhover zpointer" style="min-height:77px;border-bottom:1px #cdcdcd solid;">\
 			<a class="fsp_title fsp_titleh stitle" href=""></a>\
 			<img class="fsp_image lazy cimage" style="clear: left; float: left; margin-right: 3px; padding: 2px; border: 1px solid rgb(204, 204, 204); border-radius: 2px; display: block;" src="" data-original="" height= "66" width="50" ></img>\
@@ -983,6 +1098,7 @@ function SearchFilterSort()
 			<div class="fsp_summary z-indent z-padtop"></div>\
 			<span class="z-padtop2 xgray">Rated:</span><span class="fsp_rated z-padtop2 xgray"></span>\
 			- <span class="z-padtop2 xgray">Language:</span><span class="fsp_lag z-padtop2 xgray"></span>\
+			- <span class="z-padtop2 xgray">Genres:</span><span class="fsp_genres z-padtop2 xgray"></span>\
 			- <span class="z-padtop2 xgray">Chapters:</span><span class="fsp_chapters z-padtop2 xgray"></span>\
 			- <span class="z-padtop2 xgray">Words:</span><span class="fsp_words z-padtop2 xgray"></span>\
 			- <span class="z-padtop2 xgray">Reviews:</span><span class="fsp_reviews z-padtop2 xgray"></span>\
@@ -994,70 +1110,9 @@ function SearchFilterSort()
 			- <span class="z-padtop2 xgray">Characters:</span><span class="fsp_characters z-padtop2 xgray"></span>\
 			- <span class="z-padtop2 xgray">Relationships:</span><span class="fsp_relationships z-padtop2 xgray"></span></span>\
 			- <span class="z-padtop2 xgray">Id:</span><span class="fsp_Id z-padtop2 xgray"></span>'
-		};
-		
-		var fics = new List('fsp_main', options);
-		//console.log(ff.fanfiction[section][fanName]);
-		for (let i = 0; i < ff.fanfiction[section][fanName].length; i++)
-		{
-			if (ff.fanfiction[section][fanName][i]["updated"] === 0)
-			{
-				fics.add({
-					fsp_title: ff.fanfiction[section][fanName][i]["title"],
-					fsp_titleh: ff.fanfiction[section][fanName][i]["href"],
-					fsp_image: ff.fanfiction[section][fanName][i]["image"],
-					fsp_author: ff.fanfiction[section][fanName][i]["author"],
-					fsp_authorh: ff.fanfiction[section][fanName][i]["authorUrl"],
-					fsp_summary: ff.fanfiction[section][fanName][i]["summary"],
-					fsp_rated: ff.fanfiction[section][fanName][i]["rated"],
-					fsp_lag: ff.fanfiction[section][fanName][i]["language"],
-					fsp_chapters: ff.fanfiction[section][fanName][i]["chapters"],
-					fsp_words: ff.fanfiction[section][fanName][i]["words"],
-					fsp_reviews: ff.fanfiction[section][fanName][i]["reviews"],
-					fsp_favs: ff.fanfiction[section][fanName][i]["favs"],
-					fsp_follows: ff.fanfiction[section][fanName][i]["follows"],
-					fsp_published: Intl.DateTimeFormat(undefined, { year: 'numeric', month: 'short', day: 'numeric' }).format(new Date(ff.fanfiction[section][fanName][i]["published"] * 1000)),
-					fsp_publishedRaw: ff.fanfiction[section][fanName][i]["published"],
-					fsp_updated: 0,
-					fsp_updatedRaw: ff.fanfiction[section][fanName][i]["updated"],
-					fsp_complete: ff.fanfiction[section][fanName][i]["complete"],
-					fsp_characters: ff.fanfiction[section][fanName][i]["characters"],
-					fsp_relationships: ff.fanfiction[section][fanName][i]["relationships"],
-					fsp_Id: ff.fanfiction[section][fanName][i]["id"]
-				});
-			} else
-			{
-				fics.add({
-					fsp_title: ff.fanfiction[section][fanName][i]["title"],
-					fsp_titleh: ff.fanfiction[section][fanName][i]["href"],
-					fsp_image: ff.fanfiction[section][fanName][i]["image"],
-					fsp_author: ff.fanfiction[section][fanName][i]["author"],
-					fsp_authorh: ff.fanfiction[section][fanName][i]["authorUrl"],
-					fsp_summary: ff.fanfiction[section][fanName][i]["summary"],
-					fsp_rated: ff.fanfiction[section][fanName][i]["rated"],
-					fsp_lag: ff.fanfiction[section][fanName][i]["language"],
-					fsp_chapters: ff.fanfiction[section][fanName][i]["chapters"],
-					fsp_words: ff.fanfiction[section][fanName][i]["words"],
-					fsp_reviews: ff.fanfiction[section][fanName][i]["reviews"],
-					fsp_favs: ff.fanfiction[section][fanName][i]["favs"],
-					fsp_follows: ff.fanfiction[section][fanName][i]["follows"],
-					fsp_published: Intl.DateTimeFormat(undefined, { year: 'numeric', month: 'short', day: 'numeric' }).format(new Date(ff.fanfiction[section][fanName][i]["published"] * 1000)),
-					fsp_publishedRaw: ff.fanfiction[section][fanName][i]["published"],
-					fsp_updated: Intl.DateTimeFormat(undefined, { year: 'numeric', month: 'short', day: 'numeric' }).format(new Date(ff.fanfiction[section][fanName][i]["updated"] * 1000)),
-					fsp_updatedRaw: ff.fanfiction[section][fanName][i]["updated"],
-					fsp_complete: ff.fanfiction[section][fanName][i]["complete"],
-					fsp_characters: ff.fanfiction[section][fanName][i]["characters"],
-					fsp_relationships: ff.fanfiction[section][fanName][i]["relationships"],
-					fsp_Id: ff.fanfiction[section][fanName][i]["id"]
-				});
-			}
-		}
+	};
 
-		//$('.search').on('keyup', function ()
-		//{
-		//	var searchString = $(this).val();
-		//	fics.search(searchStrisng, ['fsp_words']);
-		//});
+	let fics = new List('fsp_main', options, ff.fanfiction[section][fanName]);
 		
 		$("#fsp_resultCount").text(fics.size());
 
@@ -1076,7 +1131,7 @@ function SearchFilterSort()
 		fics.on("updated", function ()
 		{
 			$(".fsp_list").unhighlight();
-			var search = $(".search").val();
+			var search = $(".search").val() || $(".fsp_searchAuthor").val() || $(".fsp_searchTitle").val();
 			var words = search.split(" ");
 			$(".fsp_list").highlight(words);
 			$("#fsp_resultCount").text(fics.matchingItems.length);
@@ -1085,8 +1140,11 @@ function SearchFilterSort()
 		$('.fsp_filterChapters, .fsp_filterWords, .fsp_filterReviews, .fsp_filterFavs, .fsp_filterFollows, .fsp_filterPublishedA, .fsp_filterPublishedB, .fsp_filterUpdatedA, .fsp_filterUpdatedB, .fsp_filterCharacters, .fsp_filterRelationships').on('keyup change', function ()
 		{
 			var number = [];
+
 			var raw = [$(".fsp_filterChapters").val(), $(".fsp_filterWords").val(), $(".fsp_filterReviews").val(), $(".fsp_filterFavs").val(), $(".fsp_filterFollows").val(), $(".fsp_filterPublishedA").val(), $(".fsp_filterPublishedB").val(), $(".fsp_filterUpdatedA").val(), $(".fsp_filterUpdatedB").val(), $(".fsp_filterCharacters").val(), $(".fsp_filterRelationships").val()];
+
 			var fsp = ["fsp_chapters", "fsp_words", "fsp_reviews", "fsp_favs", "fsp_follows", "fsp_publishedRaw", "fsp_publishedRaw", "fsp_updatedRaw", "fsp_updatedRaw", "fsp_characters", "fsp_relationships"];
+
 			var im = [];
 			if(debug) console.log(raw);
 			for (let i = 0; i < raw.length; i++)
@@ -1181,10 +1239,11 @@ function SearchFilterSort()
 						else
 							return false;
 
+						/*
 						if (yn.every(e => e === false))
 							return false;
 						else
-							return true;
+							return true;*/
 					} else if (i === 10)
 					{
 						if (item.values()[fsp[i]] === "none")
@@ -1231,10 +1290,10 @@ function SearchFilterSort()
 						else
 							return false;
 
-						if (yn.every(e => e === false))
+						/*if (yn.every(e => e === false))
 							return false;
 						else
-							return true;
+							return true;*/
 					} else
 					{
 						if (raw[i].match(">"))
@@ -1275,278 +1334,6 @@ function SearchFilterSort()
 
 			$("#fsp_resultCount").text(fics.matchingItems.length);
 		});
-
-		/*
-		$('.fsp_filterPublishedA, .fsp_filterPublishedB, .fsp_filterUpdatedA, .fsp_filterUpdatedB').on('change', function ()
-		{
-			var number = [];
-			var raw = [$(".fsp_filterPublishedA").val(), $(".fsp_filterPublishedB").val(), $(".fsp_filterUpdatedA").val(), $(".fsp_filterUpdatedB").val()];
-			var fsp = ["fsp_publishedRaw", "fsp_publishedRaw", "fsp_updatedRaw", "fsp_updatedRaw"];
-			var im = [];
-
-			for (let i = 0; i < raw.length; i++)
-			{
-				number[i] = new Date(raw[i]).getTime() / 1000;
-			}
-
-			fics.filter(function (item)
-			{
-				for (let i = 0; i < raw.length; i++)
-				{
-					if (raw[i] === "") continue;
-
-					if (IsEven(i))
-					{
-						if (item.values()[fsp[i]] >= number[i])
-						{
-							im.push(true);
-						}
-						else
-						{
-							return false;
-						}
-					} else
-					{
-						if (item.values()[fsp[i]] <= number[i])
-						{
-							im.push(true);
-						}
-						else
-						{
-							return false;
-						}
-					}
-					
-				}
-
-				if (im.every(e => e === true))
-					return true;
-				else
-					return false;
-
-			}); // Only items with id > 1 are shown in list
-
-			if (raw.every(e => e === ""))
-			{
-				fics.filter();
-			}
-
-			$("#fsp_resultCount").text(fics.matchingItems.length);
-		});
-		*/
-		/*
-		$('.fsp_filterChapters').on('keyup', function ()
-		{
-			var number;
-			var raw = $(this).val();
-
-			if (raw.match(">"))
-			{
-				number = raw.substr(1);
-			} else if (raw.match("<"))
-			{
-				number = raw.substr(1);
-			} else { number = raw; }
-
-			fics.filter(function (item)
-			{
-				if (raw.match(">"))
-				{
-					if (item.values().fsp_chapters >= number)
-						return true;
-					else
-						return false;
-				} else if (raw.match("<"))
-				{
-					if (item.values().fsp_chapters <= number)
-						return true;
-					else
-						return false;
-				} else if (item.values().fsp_chapters === number)
-				{
-					return true;
-				} else
-					return false;
-
-			}); // Only items with id > 1 are shown in list
-
-			if (raw === "")
-			{
-				fics.filter();
-			}
-
-			$("#fsp_resultCount").text(fics.matchingItems.length);
-		});
-
-		$('.fsp_filterWords').on('keyup', function ()
-		{
-			var number;
-			var raw = $(this).val();
-			
-			if (raw.match(">"))
-			{
-				number = raw.substr(1);
-			} else if (raw.match("<"))
-			{
-				number = raw.substr(1);
-			} else { number = raw; }
-
-			fics.filter(function (item)
-			{
-				if (raw.match(">"))
-				{
-					if (item.values().fsp_words >= number)
-						return true;
-					else
-						return false;
-				} else if (raw.match("<"))
-				{
-					if (item.values().fsp_words <= number)
-						return true;
-					else
-						return false;
-				} else if (item.values().fsp_words === number)
-				{
-					return true;
-				} else
-					return false;
-			}); // Only items with id > 1 are shown in list
-
-			if (raw === "")
-			{
-				fics.filter();
-			}
-
-			$("#fsp_resultCount").text(fics.matchingItems.length);
-		});
-
-		$('.fsp_filterReviews').on('keyup', function ()
-		{
-			var number;
-			var raw = $(this).val();
-
-			if (raw.match(">"))
-			{
-				number = raw.substr(1);
-			} else if (raw.match("<"))
-			{
-				number = raw.substr(1);
-			} else { number = raw; }
-
-			fics.filter(function (item)
-			{
-				if (raw.match(">"))
-				{
-					if (item.values().fsp_reviews >= number)
-						return true;
-					else
-						return false;
-				} else if (raw.match("<"))
-				{
-					if (item.values().fsp_reviews <= number)
-						return true;
-					else
-						return false;
-				} else if (item.values().fsp_reviews === number)
-				{
-					return true;
-				} else
-					return false;
-			}); // Only items with id > 1 are shown in list
-
-			if (raw === "")
-			{
-				fics.filter();
-			}
-
-			$("#fsp_resultCount").text(fics.matchingItems.length);
-		});
-
-		$('.fsp_filterFavs').on('keyup', function ()
-		{
-			var number;
-			var raw = $(this).val();
-
-			if (raw.match(">"))
-			{
-				number = raw.substr(1);
-			} else if (raw.match("<"))
-			{
-				number = raw.substr(1);
-			} else { number = raw; }
-
-			fics.filter(function (item)
-			{
-				if (raw.match(">"))
-				{
-					if (item.values().fsp_favs >= number)
-						return true;
-					else
-						return false;
-				} else if (raw.match("<"))
-				{
-					if (item.values().fsp_favs <= number)
-						return true;
-					else
-						return false;
-				} else if (item.values().fsp_favs === number)
-				{
-					return true;
-				} else
-					return false;
-			}); // Only items with id > 1 are shown in list
-
-			if (raw === "")
-			{
-				fics.filter();
-			}
-
-			$("#fsp_resultCount").text(fics.matchingItems.length);
-		});
-
-		$('.fsp_filterFollows').on('keyup', function ()
-		{
-			var number;
-			var raw = $(this).val();
-
-			if (raw.match(">"))
-			{
-				number = raw.substr(1);
-			} else if (raw.match("<"))
-			{
-				number = raw.substr(1);
-			} else { number = raw; }
-
-			fics.filter(function (item)
-			{
-				if (raw.match(">"))
-				{
-					if (item.values().fsp_follows >= number)
-						return true;
-					else
-						return false;
-				} else if (raw.match("<"))
-				{
-					if (item.values().fsp_follows <= number)
-						return true;
-					else
-						return false;
-				} else if (item.values().fsp_follows === number)
-				{
-					return true;
-				} else
-					return false;
-			}); // Only items with id > 1 are shown in list
-
-			if (raw === "")
-			{
-				fics.filter();
-			}
-
-			$("#fsp_resultCount").text(fics.matchingItems.length);
-		});
-		*/
-	} catch (e) { console.error(e); }
 }
 //Function Search Filter Sort fics
 //End
@@ -1559,23 +1346,31 @@ function SearchFilterSort()
 //Function UI add 
 function UI(what)
 {
-	try
-	{
 		var a,
 			s;
 		switch (what)
 		{
 			case "first":
-				a = $("<a id=fsp_fetch></a>").text("Fetch fanfics");
+				{
+					let _span = $("#content_wrapper_inner > span:first");
+					if (_span.length === 0)
+					{
+						_span = $("#content_wrapper_inner > a[title='Feed']");
+					}
 
-				$("#content_wrapper_inner > span:first").prepend("	|	");
-				$("#content_wrapper_inner > span:first").prepend("<span id=fsp_fetchCount>" + ff.fanfiction[section][fanName].length + "</span>");
-				$("#content_wrapper_inner > span:first").prepend("	|	");
-				$("#content_wrapper_inner > span:first").prepend(a);
-				SetEvents(what, a);
-				break;
+					let _div = $("<div style='float: right;'></div>");
+
+					_div.prepend("<span id=fsp_timer>00:00</span> | ");
+					_div.prepend("<span id=fsp_fetchCount>" + ff.fanfiction[section][fanName].length + "</span> | ");
+					_div.prepend("<a id=fsp_fetch>Fetch fanfics</a> | ");
+
+					_span.after(_div);
+					SetEvents(what, a);
+					break;
+				}
 			case "normal":
-				var div = $("<div id=fsp_main></div>").html('<div id=fsp_searchOptions>\
+				{
+					let div = $("<div id=fsp_main></div>").html('<div id=fsp_searchOptions>\
 					<div id=fsp_filters>\
 					<div id=fsp_filterZeroGrid>\
 					<input class="filter fsp_searchAuthor" type="text" placeholder="Search Author" />\
@@ -1623,30 +1418,43 @@ function UI(what)
 					</div>\
 					<input class="search" placeholder="Global Search" />\
 					<span id=fsp_resultCount></span>\
-					<ul class="pagination"></ul>\
+					<ul class="paginationTop pagination"></ul>\
 					</div>\
 					<hr size="1" noshade="">\
 					<ul class="list">\
 					</ul>\
-					<ul class="pagination"></ul>\
+					<ul class="paginationBottom pagination"></ul>\
 					</div>');
-				//console.log($(".lc-wrapper").nextAll());
-				$(".lc-wrapper").nextAll().wrapAll("<div id=fsp_wrap />");
 
-				$("#fsp_wrap").after(div);
-				$(div).hide();
+					let _c = $(".lc-wrapper");
 
-				s = $("<a id=fsp_search></a>").text("Search fanfics"),
-				a = $("<a id=fsp_fetch></a>").text("Update fanfics");
+					if (_c.length === 0)
+					{
+						_c = $("#content_wrapper_inner > center");
+					}
 
-				$("#content_wrapper_inner > span:first").prepend("	|	");
-				$("#content_wrapper_inner > span:first").prepend("<span id=fsp_fetchCount>" + ff.fanfiction[section][fanName].length + "</span>");
-				$("#content_wrapper_inner > span:first").prepend("	|	");
-				$("#content_wrapper_inner > span:first").prepend(a);
-				$("#content_wrapper_inner > span:first").prepend("	|	");
-				$("#content_wrapper_inner > span:first").prepend(s);
-				SetEvents(what); //TODO EVENTS
-				break;
+					_c.nextAll().wrapAll("<div id=fsp_wrap />");
+
+					$("#fsp_wrap").after(div);
+					$(div).hide();
+
+					let _span = $("#content_wrapper_inner > span:first");
+					if (_span.length === 0)
+					{
+						_span = $("#content_wrapper_inner > a[title='Feed']");
+					}
+
+					let _div = $("<div style='float: right;'></div>");
+
+					_div.prepend("<span id=fsp_timer>0:00</span> | ");
+					_div.prepend("<span id=fsp_fetchCount>" + ff.fanfiction[section][fanName].length + "</span> | ");
+					_div.prepend("<a id=fsp_fetch>Update fanfics</a> | ");
+					_div.prepend("<a id=fsp_search>Search fanfics</a> | ");
+
+					_span.after(_div);
+					SetEvents(what); //TODO EVENTS
+					break;
+				}
 			case "upFetchCount":
 				$("#fsp_fetchCount").text(ff.fanfiction[section][fanName].length);
 				break;
@@ -1654,7 +1462,6 @@ function UI(what)
 				break;
 		}
 		
-	} catch (e) { console.error(e); }
 }
 //Function UI add
 //End
@@ -1663,43 +1470,39 @@ function UI(what)
 //Function set events 
 function SetEvents(what, target)
 {
-	try
-	{
 		switch (what)
 		{
 			case "first":
-				$(target).click(function ()
+				$("#fsp_fetch").click(function ()
 				{
-					if (window.confirm("Be patient. It will take some time to fetch ALL fanfics for this fandom. !!!DO NOT CLOSE AND RELOAD THIS TAB!"))
+					if (window.confirm("Be patient. It will take some time to fetch ALL fanfics for this fandom. !!!DO NOT CLOSE AND RELOAD THIS TAB!!!"))
 					{
 						//Update GM fetch is true
 						ff.fetch = true;
 						UpdateGM("ff");
-						alert("!YES!");
-						window.location.href = "https://www.fanfiction.net/" + section + "/" + fanName + "/" + mRatingAndUpTime;
+						if (section === "Crossovers")
+							window.location.href = "https://www.fanfiction.net/" + fanName  + "/" + mRatingAndUpTime;
+						else
+							window.location.href = "https://www.fanfiction.net/" + section + "/" + fanName + "/" + mRatingAndUpTime;
 						//Began fetching
 						//MAKE MARKS ON FANFICS GREEN PARSED BLACK/RED NOT AND MIDDLE GROUND
-					} else
-					{
-						alert("!NO!");
 					}
 				});
 				break;
 			case "normal":
 				$("#fsp_fetch").click(function ()
 				{
-					if (window.confirm("Be patient. It will take some time to UPDATE fanfics for this fandom. !!!DO NOT CLOSE AND RELOAD THIS TAB!"))
+					if (window.confirm("Be patient. It will take some time to UPDATE fanfics for this fandom. !!!DO NOT CLOSE AND RELOAD THIS TAB!!!"))
 					{
 						ff.fetch = true;
 						ff.fanfiction[section][fanName].length = 0; //TODO ACTUAL UPDATE
 						UpdateGM("ff");
-						alert("!YES!");
-						window.location.href = "https://www.fanfiction.net/" + section + "/" + fanName + "/" + mRatingAndUpTime;
+						if (section === "Crossovers")
+							window.location.href = "https://www.fanfiction.net/" + fanName + "/" + mRatingAndUpTime;
+						else
+							window.location.href = "https://www.fanfiction.net/" + section + "/" + fanName + "/" + mRatingAndUpTime;
 						//Began fetching
 						//MAKE MARKS ON FANFICS GREEN PARSED BLACK/RED NOT AND MIDDLE GROUND
-					} else
-					{
-						alert("!NO!");
 					}
 				});
 				$("#fsp_search").click(function ()
@@ -1717,7 +1520,7 @@ function SetEvents(what, target)
 				break;
 		}
 
-	} catch (e) { console.error(e); }
+
 }
 //Function set events
 //End
@@ -1800,6 +1603,8 @@ function SetCSS()
 
 	$("head").append($("<style type=text/css></style>").text('.pagination {display: flex;\
 	justify-content: center;}'));
+
+	$("head").append($("<style type=text/css></style>").text('.active {font-size: 20px;'));
 
 	$("head").append($("<style type=text/css></style>").text('#fsp_resultCount {display: flex;\
 	justify-content: center;\
